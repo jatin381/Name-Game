@@ -21,7 +21,7 @@
       font-weight: bold;
     }
     #hearts {
-      color: PINK;
+      color: red;
       font-size: 22px;
     }
     #gameOver {
@@ -87,6 +87,13 @@
     audio {
       display: none;
     }
+
+    /* Hide arrow controls on mobile/touch devices */
+    @media (pointer: coarse) {
+      #mobileControls {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -148,10 +155,10 @@
   const pauseMenu = document.getElementById('pauseMenu');
 
   const names = [
-    { label: "Kirti", emoji: "👱‍♀️Motii" },
-    { label: "Jatin 💣", emoji: "DON💣" },
-    { label: "Ankita", emoji: "👩‍🦰Ankita" },
-    { label: "Kshma", emoji: "👱‍♀️Kshma" }
+    { label: "Afsar", emoji: "🧑‍🦱" },
+    { label: "Jatin 💣", emoji: "👦💣" },
+    { label: "Priyanka", emoji: "👩‍🦰" },
+    { label: "Laxmi", emoji: "👱‍♀️" }
   ];
 
   const basket = {
@@ -297,6 +304,7 @@
     gameOverMsg.textContent = msg;
   }
 
+  // Keyboard controls
   document.addEventListener('keydown', (e) => {
     if (e.key === "ArrowLeft") basket.dx = -basket.speed;
     else if (e.key === "ArrowRight") basket.dx = basket.speed;
@@ -306,8 +314,36 @@
     basket.dx = 0;
   });
 
+  // Mobile button touch release
   document.querySelectorAll('#mobileControls button').forEach(btn => {
     btn.addEventListener('touchend', () => basket.dx = 0);
+  });
+
+  // Touch sliding controls
+  let touchStartX = null;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 0) {
+      touchStartX = e.touches[0].clientX;
+    }
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 0 && touchStartX !== null) {
+      const touchX = e.touches[0].clientX;
+      const deltaX = touchX - touchStartX;
+      basket.x += deltaX * 0.4;
+
+      if (basket.x < 0) basket.x = 0;
+      if (basket.x + basket.width > canvas.width) {
+        basket.x = canvas.width - basket.width;
+      }
+
+      touchStartX = touchX;
+    }
+  });
+
+  canvas.addEventListener('touchend', () => {
+    touchStartX = null;
   });
 </script>
 </body>
