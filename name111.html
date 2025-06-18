@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Catch the Names Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      background: #f0f0f0;
+      display: block;
+    }
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    #hearts {
+      color: red;
+      font-size: 22px;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+      text-align: center;
+      display: none;
+    }
+    #startScreen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      text-align: center;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      display: block;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      background: #007acc;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #mobileControls {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 40px;
+    }
+    #mobileControls button {
+      font-size: 24px;
+      width: 60px;
+      height: 60px;
+    }
+    #pauseControl {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    #pauseMenu {
+      display: none;
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<div id="hud">
+  Score: <span id="score">0</span> |
+  High Score: <span id="highScore">0</span> |
+  Time: <span id="timer">0</span>s |
+  Level: <span id="level">1</span> |
+  Lives: <span id="hearts">❤️❤️❤️</span>
+</div>
+
+<div id="pauseControl">
+  <button id="pauseBtn" onclick="togglePause()">⏸️ Pause</button>
+</div>
+
+<div id="pauseMenu">
+  <button onclick="togglePause()">▶️ Resume</button><br>
+  <button onclick="location.reload()">🔄 Restart</button><br><br>
+  <strong>Difficulty:</strong><br>
+  <button onclick="setDifficulty('easy')">Easy</button>
+  <button onclick="setDifficulty('medium')">Medium</button>
+  <button onclick="setDifficulty('hard')">Hard</button>
+</div>
+
+<div id="startScreen">
+  <p><strong>Select Time Limit:</strong></p>
+  <button onclick="startGame(50)">50 sec</button>
+  <button onclick="startGame(60)">60 sec</button>
+  <button onclick="startGame(90)">1 min</button>
+</div>
+
+<div id="gameOver">
+  <p id="gameOverMsg">Game Over!</p>
+  <button onclick="location.reload()">Restart</button>
+</div>
+
+<div id="mobileControls">
+  <button onclick="basket.dx = -basket.speed">⬅️</button>
+  <button onclick="basket.dx = basket.speed">➡️</button>
+</div>
+
+<audio id="bgMusic" src="https://www.bensound.com/bensound-music/bensound-summer.mp3" autoplay loop></audio>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const scoreEl = document.getElementById('score');
+  const highScoreEl = document.getElementById('highScore');
+  const timerEl = document.getElementById('timer');
+  const levelEl = document.getElementById('level');
+  const heartsEl = document.getElementById('hearts');
+  const gameOverEl = document.getElementById('gameOver');
+  const gameOverMsg = document.getElementById('gameOverMsg');
+  const startScreen = document.getElementById('startScreen');
+  const pauseMenu = document.getElementById('pauseMenu');
+
+  const names = [
+    { label: "Afsar", emoji: "🧑‍🦱" },
+    { label: "Jatin 💣", emoji: "👦💣" },
+    { label: "Priyanka", emoji: "👩‍🦰" },
+    { label: "Laxmi", emoji: "👱‍♀️" }
+  ];
+
+  const basket = {
+    x: canvas.width / 2 - 40,
+    y: canvas.height - 30,
+    width: 80,
+    height: 20,
+    dx: 0,
+    speed: 6
+  };
+
+  let falling = [];
+  let score = 0;
+  let highScore = localStorage.getItem('highScore') || 0;
+  let level = 1;
+  let lives = 3;
+  let missedJatin = 0;
+  let gameRunning = false;
+  let gameTime = 60;
+  let countdownInterval;
+  let spawnInterval;
+  let isPaused = false;
+  let difficulty = 'medium';
+
+  highScoreEl.textContent = highScore;
+
+  function startGame(seconds) {
+    gameTime = seconds;
+    timerEl.textContent = gameTime;
+    gameRunning = true;
+    startScreen.style.display = 'none';
+    update();
+    countdownInterval = setInterval(() => {
+      if (!isPaused) {
+        gameTime--;
+        timerEl.textContent = gameTime;
+        if (gameTime <= 0) {
+          endGame("⏳ Time's up!");
+        }
+      }
+    }, 1000);
+    spawnInterval = setInterval(() => {
+      if (!isPaused) spawnCharacter();
+    }, 1000);
+  }
+
+  function spawnCharacter() {
+    const chosen = names[Math.floor(Math.random() * names.length)];
+    const x = Math.random() * (canvas.width - 30);
+    let baseSpeed = 2 + level;
+    if (difficulty === 'easy') baseSpeed *= 0.8;
+    if (difficulty === 'hard') baseSpeed *= 1.4;
+    falling.push({ text: chosen.emoji, name: chosen.label, x, y: 0, speed: baseSpeed });
+  }
+
+  function drawBasket() {
+    ctx.fillStyle = '#007acc';
+    ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+  }
+
+  function drawCharacter(char) {
+    ctx.font = '24px Arial';
+    ctx.fillText(char.text, char.x, char.y);
+  }
+
+  function moveBasket() {
+    basket.x += basket.dx;
+    if (basket.x < 0) basket.x = 0;
+    if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
+  }
+
+  function detectCatch(char, index) {
+    const textWidth = ctx.measureText(char.text).width;
+    if (
+      char.y + 20 >= basket.y &&
+      char.x + textWidth >= basket.x &&
+      char.x <= basket.x + basket.width
+    ) {
+      if (char.name === "Jatin 💣") {
+        missedJatin++;
+        lives--;
+        updateHearts();
+        if (missedJatin >= 3 || lives <= 0) {
+          endGame('💣 You caught "Jatin 💣" 3 times!');
+        }
+      } else {
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('highScore', highScore);
+          highScoreEl.textContent = highScore;
+        }
+        scoreEl.textContent = score;
+        if (score % 10 === 0) {
+          level++;
+          levelEl.textContent = level;
+        }
+      }
+      falling.splice(index, 1);
+    } else if (char.y > canvas.height) {
+      falling.splice(index, 1);
+    }
+  }
+
+  function updateHearts() {
+    const heartArray = ["❤️", "❤️", "❤️"];
+    heartsEl.textContent = heartArray.slice(0, lives).join('');
+  }
+
+  function update() {
+    if (!gameRunning || isPaused) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBasket();
+    moveBasket();
+    for (let i = falling.length - 1; i >= 0; i--) {
+      const char = falling[i];
+      char.y += char.speed;
+      drawCharacter(char);
+      detectCatch(char, i);
+    }
+    requestAnimationFrame(update);
+  }
+
+  function togglePause() {
+    isPaused = !isPaused;
+    document.getElementById("pauseBtn").textContent = isPaused ? "▶️ Resume" : "⏸️ Pause";
+    pauseMenu.style.display = isPaused ? "block" : "none";
+    if (!isPaused) {
+      update();
+    }
+  }
+
+  function setDifficulty(level) {
+    difficulty = level;
+    alert("Difficulty set to " + level.charAt(0).toUpperCase() + level.slice(1));
+  }
+
+  function endGame(msg) {
+    gameRunning = false;
+    clearInterval(countdownInterval);
+    clearInterval(spawnInterval);
+    gameOverEl.style.display = "block";
+    gameOverMsg.textContent = msg;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowLeft") basket.dx = -basket.speed;
+    else if (e.key === "ArrowRight") basket.dx = basket.speed;
+  });
+
+  document.addEventListener('keyup', () => {
+    basket.dx = 0;
+  });
+
+  document.querySelectorAll('#mobileControls button').forEach(btn => {
+    btn.addEventListener('touchend', () => basket.dx = 0);
+  });
+</script>
+</body>
+</html>
