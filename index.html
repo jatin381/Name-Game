@@ -88,7 +88,6 @@
       display: none;
     }
 
-    /* Hide arrow controls on mobile/touch devices */
     @media (pointer: coarse) {
       #mobileControls {
         display: none;
@@ -126,6 +125,9 @@
   <button onclick="startGame(50)">50 sec</button>
   <button onclick="startGame(60)">60 sec</button>
   <button onclick="startGame(90)">1 min</button>
+  <p><strong>Or choose:</strong></p>
+  <button onclick="startEndlessMode()">🎮 Endless Mode</button>
+  <button onclick="checkHighScore()">📊 Check High Score</button>
 </div>
 
 <div id="gameOver">
@@ -138,7 +140,10 @@
   <button onclick="basket.dx = basket.speed">➡️</button>
 </div>
 
+<!-- 🎵 Background & SFX -->
 <audio id="bgMusic" src="https://www.bensound.com/bensound-music/bensound-summer.mp3" autoplay loop></audio>
+<audio id="catchSound" src="https://www.fesliyanstudios.com/play-mp3/387"></audio>
+<audio id="bombSound" src="https://www.fesliyanstudios.com/play-mp3/6706"></audio>
 
 <script>
   const canvas = document.getElementById('gameCanvas');
@@ -155,10 +160,10 @@
   const pauseMenu = document.getElementById('pauseMenu');
 
   const names = [
-    { label: "Afsar", emoji: "🧑‍🦱" },
-    { label: "Jatin 💣", emoji: "👦💣" },
-    { label: "Priyanka", emoji: "👩‍🦰" },
-    { label: "Laxmi", emoji: "👱‍♀️" }
+    { label: "Kirti", emoji: "Motiii👱‍♀️" }, 
+    { label: "Jatin 💣", emoji: "Don💣" }, 
+    { label: "kshma", emoji: "Kshma👩‍🦰" }, 
+    { label: "Ankita", emoji: "Ankita👱‍♀️" } 
   ];
 
   const basket = {
@@ -205,6 +210,21 @@
     }, 1000);
   }
 
+  function startEndlessMode() {
+    gameTime = null;
+    timerEl.textContent = '∞';
+    gameRunning = true;
+    startScreen.style.display = 'none';
+    update();
+    spawnInterval = setInterval(() => {
+      if (!isPaused) spawnCharacter();
+    }, 1000);
+  }
+
+  function checkHighScore() {
+    alert("🏆 Your High Score: " + (localStorage.getItem('highScore') || 0));
+  }
+
   function spawnCharacter() {
     const chosen = names[Math.floor(Math.random() * names.length)];
     const x = Math.random() * (canvas.width - 30);
@@ -241,19 +261,22 @@
         missedJatin++;
         lives--;
         updateHearts();
+        document.getElementById("bombSound").play(); // 💥
         if (missedJatin >= 3 || lives <= 0) {
           endGame('💣 You caught "Jatin 💣" 3 times!');
         }
       } else {
         score++;
+        document.getElementById("catchSound").play(); // ✅
         if (score > highScore) {
           highScore = score;
           localStorage.setItem('highScore', highScore);
           highScoreEl.textContent = highScore;
         }
         scoreEl.textContent = score;
-        if (score % 10 === 0) {
-          level++;
+
+        if (score === 35) {
+          level = 2;
           levelEl.textContent = level;
         }
       }
@@ -286,9 +309,7 @@
     isPaused = !isPaused;
     document.getElementById("pauseBtn").textContent = isPaused ? "▶️ Resume" : "⏸️ Pause";
     pauseMenu.style.display = isPaused ? "block" : "none";
-    if (!isPaused) {
-      update();
-    }
+    if (!isPaused) update();
   }
 
   function setDifficulty(level) {
@@ -304,7 +325,6 @@
     gameOverMsg.textContent = msg;
   }
 
-  // Keyboard controls
   document.addEventListener('keydown', (e) => {
     if (e.key === "ArrowLeft") basket.dx = -basket.speed;
     else if (e.key === "ArrowRight") basket.dx = basket.speed;
@@ -314,17 +334,13 @@
     basket.dx = 0;
   });
 
-  // Mobile button touch release
   document.querySelectorAll('#mobileControls button').forEach(btn => {
     btn.addEventListener('touchend', () => basket.dx = 0);
   });
 
-  // Touch sliding controls
   let touchStartX = null;
   canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 0) {
-      touchStartX = e.touches[0].clientX;
-    }
+    if (e.touches.length > 0) touchStartX = e.touches[0].clientX;
   });
 
   canvas.addEventListener('touchmove', (e) => {
@@ -332,12 +348,8 @@
       const touchX = e.touches[0].clientX;
       const deltaX = touchX - touchStartX;
       basket.x += deltaX * 0.4;
-
       if (basket.x < 0) basket.x = 0;
-      if (basket.x + basket.width > canvas.width) {
-        basket.x = canvas.width - basket.width;
-      }
-
+      if (basket.x + basket.width > canvas.width) basket.x = canvas.width - basket.width;
       touchStartX = touchX;
     }
   });
